@@ -454,3 +454,54 @@ The container is designed to deploy to AWS App Runner, Render, or any container 
 - Portfolio visualization: heatmap renders with correct colors, P&L chart has data points
 - AI chat (mocked): send a message, receive a response, trade execution appears inline
 - SSE resilience: disconnect and verify reconnection
+
+---
+
+## 13. Review Notes — Questions, Clarifications & Simplifications
+
+*Added during a doc review (2026-11-24). Each item names a gap or inconsistency and gives a suggested resolution. Agents should treat the suggestions as provisional until the plan owner confirms or amends them.*
+
+### A. Inconsistencies Between Sections (and With Built Code)
+
+1. **"Daily change %" has no reference price.** §10 asks the watchlist to show *daily* change %, but the price cache only holds `price` and `previous_price` (the last tick), and `PriceUpdate.change_percent` is tick-to-tick. The simulator has no notion of a day open.
+   *Suggestion:* Show "% change since session start", using the seed price for the simulator or the first price seen for Massive. Store a `session_open` per ticker in the cache and rename the column "Chg %".
+2. **SSE event shape doesn't match the built code.** §6 says "each SSE event contains ticker, price, previous price, timestamp, and change direction" (one ticker per event). The implemented `stream.py` sends **one event holding a dict of every ticker**, and only when the cache version changes.
+   *Suggestion:* Update §6 to describe the actual payload (`data: {"AAPL": {...}, "MSFT": {...}}`) so the frontend agent codes against reality.
+3. **`users_profile` has no `user_id` column**, although §7 says "All tables include a `user_id` column". Its `id` serves that purpose.
+   *Suggestion:* Reword to "all tables except `users_profile` (whose `id` is the user id)".
+4. **The heatmap colors by P&L, but which P&L?** Color by unrealized P&L % (`(price - avg_cost) / avg_cost`), with a clamped scale (e.g. ±5% = full saturation). Please confirm.
+
+### B. Underspecified Behavior (Questions)
+
+5. **What happens when a ticker leaves the watchlist while a position is held?** If the market data source stops tracking it, the position can no longer be priced.
+   *Suggestion:* The set of tickers the data source tracks = watchlist ∪ held positions. Removing a watched ticker that is still held only hides it from the watchlist.
+6. **How is a new ticker validated?** Can a user add `ZZZZ`? With the simulator, any symbol would get a made-up price; with Massive, an unknown symbol returns nothing.
+   *Suggestion:* Accept a `^[A-Z.]{1,10}$` symbol format. The simulator generates a default seed (e.g. $100, default volatility) for unknown tickers. Under Massive, reject the ticker if the first poll returns no data.
+7. **A trade on a ticker with no cached price yet** (just added, before the first tick or poll): reject it with a clear error (`409 price unavailable`)?
+8. **Quantity rules:** fractional shares are allowed, but is there a minimum or a precision limit? Suggest `quantity > 0`, rounded to 4 decimals. Selling the full position deletes the `positions` row (not a zero-quantity row).
+9. **Trade response shape:** what does `POST /api/portfolio/trade` return? Suggest the executed trade plus the updated portfolio (same shape as `GET /api/portfolio`), so the UI refreshes without a second call. Error format: `{"detail": "..."}` with 400 for validation errors.
+10. **Response schemas for all endpoints are missing.** Frontend and backend agents need a shared contract. Add a short JSON example per endpoint, or a `planning/API_CONTRACT.md`.
+11. **How much chat history goes into the prompt?** Suggest the last 20 messages. Does the chat panel load prior history on page load? That needs a `GET /api/chat` (or `/api/chat/history`) endpoint, which isn't listed.
+12. **Multiple LLM trades, partial failure:** are they executed in order, independently (non-atomic)? And are failures reported only to the user, or fed back to the LLM for a second turn? §9 says "so the LLM can inform the user", which implies a second LLM call.
+    *Suggestion (simpler):* No second call. Append a deterministic summary of failures to the returned message and include per-action status in `actions`.
+13. **LLM mock behavior:** what exactly does the mock return? E2E tests need it to be predictable.
+    *Suggestion:* A keyword-based mock, e.g. a message containing "buy" → a 1-share AAPL buy; "watch X" → add X; otherwise a fixed greeting.
+14. **Portfolio snapshot retention:** a snapshot every 30s is about 2,880 rows a day, which grows without bound. Is it fine to keep everything, or should old rows be pruned or downsampled? Also, should a snapshot be recorded on startup so the P&L chart isn't empty for the first 30 seconds?
+15. **Missing `OPENROUTER_API_KEY` with `LLM_MOCK=false`:** should chat return a friendly error message instead of a 500, so the rest of the app stays usable?
+16. **Static export and routing:** confirm a single route (`/`) with no dynamic Next.js routes, so FastAPI only needs `StaticFiles(html=True)` mounted after the API routers.
+
+### C. Opportunities to Simplify
+
+17. **Merge the start scripts.** `docker-compose.yml` with `up -d --build` / `down` already gives idempotent start/stop on every OS. The four scripts could become thin one-line wrappers, or be replaced by documented compose commands.
+18. **Pick one charting library.** Lightweight Charts covers the sparklines, the main chart and the P&L line, but not the treemap. Recharts covers all four, treemap included. *Suggestion:* use Recharts everywhere (or a hand-rolled CSS-grid/flex treemap) to avoid two dependencies.
+19. **Sparklines can share the main chart's buffer.** Keep one per-ticker ring buffer (e.g. the last 300 points) in a frontend store, and have both the sparkline and the main chart read from it.
+20. **Simplify the E2E infrastructure.** A Playwright container plus docker-compose is heavy for a course project. Running Playwright locally against `docker run` (or `webServer` in `playwright.config.ts`) is simpler. Keep the compose file only if CI needs it.
+21. **Drop `id` UUIDs where a natural key exists.** `positions` and `watchlist` already have `UNIQUE(user_id, ticker)`, so making that the primary key removes UUID generation and simplifies upserts (`INSERT ... ON CONFLICT DO UPDATE`). UUIDs remain useful for `trades`, `chat_messages` and snapshots.
+22. **Compute live portfolio value on the frontend.** The header's "total value (updating live)" can be cash + Σ(qty × SSE price) computed on the frontend, with no extra polling endpoint. The backend stays authoritative for trades.
+23. **Consider replacing the SSE resilience E2E test.** Simulating a disconnect in Playwright is fiddly; a unit test of the connection-status hook may be enough.
+24. **The Massive free tier (15s polling) conflicts with "~500ms flashes".** That's expected, but say explicitly that the UX is simulator-first and that Massive mode is best-effort.
+
+### D. Minor Wording
+
+- §4 lists `backend/db/` for schema and seed data, but the existing code lives under `backend/app/`. Clarify whether it should be `backend/app/db/`.
+- §2 says "Prices flash ... fading over ~500ms", and the SSE cadence is also ~500ms, so flashes will chain almost continuously. Consider ~300ms, or flash only on a change ≥ $0.01.
