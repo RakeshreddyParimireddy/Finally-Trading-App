@@ -1,1 +1,0 @@
-Review the documentation file in the planning folder called PLAN.md and add Questions,classifications or feedback to a new section at the end along with any oppurtinities to simplify
