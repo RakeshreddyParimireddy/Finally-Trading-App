@@ -1,8 +1,25 @@
 # FinAlly — AI Trading Workstation
 
-A visually stunning AI-powered trading workstation that streams live market data, simulates portfolio trading, and integrates an LLM chat assistant that can analyze positions and execute trades via natural language.
+## About this project
 
-Built entirely by coding agents as a capstone project for an agentic AI coding course.
+FinAlly was built by **Rakesh Reddy Parimireddy** as part of Ed Donner's **AI Coder** course. It started from the course's starter code and was developed with **Claude Code agent teams**: separate backend, frontend, LLM, DevOps and integration-tester agents, coordinating through shared documents in `planning/`.
+
+**Main features**
+
+- Live market data streamed to the browser over SSE, with green/red price flashes and sparklines
+- Simulated trading: $10,000 virtual cash, instant-fill market orders, positions and P&L tracking
+- Portfolio heatmap, P&L history chart and positions table
+- AI chat assistant that analyzes your portfolio and can execute trades and edit your watchlist
+- Built-in market simulator, or real prices through the Massive (Polygon.io) API
+
+**Tech stack**
+
+- **Backend:** FastAPI (Python, uv), SQLite, LiteLLM → OpenRouter
+- **Frontend:** Next.js (TypeScript, static export), Tailwind CSS
+- **Deployment:** Docker (single container, one port)
+- **Testing:** Playwright end-to-end tests, plus pytest unit tests
+
+A visually stunning AI-powered trading workstation that streams live market data, simulates portfolio trading, and integrates an LLM chat assistant that can analyze positions and execute trades via natural language.
 
 ## Features
 
