@@ -7,9 +7,29 @@ import os
 
 from .schema import LLMResponse, parse_llm_response
 
-MODEL = "openrouter/openai/gpt-oss-120b"
-EXTRA_BODY = {"provider": {"order": ["cerebras"]}}
+DEFAULT_MODEL = "openrouter/openai/gpt-oss-120b"
+DEFAULT_PROVIDER = "cerebras"
 TIMEOUT_SECONDS = 60
+
+
+def get_model() -> str:
+    """LiteLLM model id, from LLM_MODEL (default: gpt-oss-120b via OpenRouter)."""
+    return os.getenv("LLM_MODEL", "").strip() or DEFAULT_MODEL
+
+
+def get_extra_body() -> dict:
+    """OpenRouter provider routing, from LLM_PROVIDER.
+
+    Unset -> pin to Cerebras. Set to "" or "any" -> let OpenRouter choose
+    (needed for models Cerebras doesn't serve, e.g. ":free" variants).
+    """
+    provider = os.getenv("LLM_PROVIDER")
+    if provider is None:
+        provider = DEFAULT_PROVIDER
+    provider = provider.strip()
+    if not provider or provider.lower() == "any":
+        return {}
+    return {"provider": {"order": [provider]}}
 
 
 class LLMUnavailableError(Exception):
@@ -31,13 +51,17 @@ def has_api_key() -> bool:
 def _call_sync(messages: list[dict]) -> str | None:
     from litellm import completion  # imported lazily: litellm import is slow
 
+    kwargs = {}
+    extra_body = get_extra_body()
+    if extra_body:
+        kwargs["extra_body"] = extra_body
     response = completion(
-        model=MODEL,
+        model=get_model(),
         messages=messages,
         response_format=LLMResponse,
         reasoning_effort="low",
-        extra_body=EXTRA_BODY,
         timeout=TIMEOUT_SECONDS,
+        **kwargs,
     )
     return response.choices[0].message.content
 
