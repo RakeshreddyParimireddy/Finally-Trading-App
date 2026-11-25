@@ -19,6 +19,9 @@ class PriceCache:
         self._prices: dict[str, PriceUpdate] = {}
         self._lock = Lock()
         self._version: int = 0  # Monotonically increasing; bumped on every update
+        # First price ever seen per ticker in this process. Survives remove() so a
+        # ticker re-added later keeps its original session reference.
+        self._session_open: dict[str, float] = {}
 
     def update(self, ticker: str, price: float, timestamp: float | None = None) -> PriceUpdate:
         """Record a new price for a ticker. Returns the created PriceUpdate.
@@ -30,12 +33,14 @@ class PriceCache:
             ts = timestamp or time.time()
             prev = self._prices.get(ticker)
             previous_price = prev.price if prev else price
+            session_open = self._session_open.setdefault(ticker, round(price, 2))
 
             update = PriceUpdate(
                 ticker=ticker,
                 price=round(price, 2),
                 previous_price=round(previous_price, 2),
                 timestamp=ts,
+                session_open=session_open,
             )
             self._prices[ticker] = update
             self._version += 1
@@ -55,6 +60,11 @@ class PriceCache:
         """Convenience: get just the price float, or None."""
         update = self.get(ticker)
         return update.price if update else None
+
+    def get_session_open(self, ticker: str) -> float | None:
+        """First price seen for a ticker in this process, or None."""
+        with self._lock:
+            return self._session_open.get(ticker)
 
     def remove(self, ticker: str) -> None:
         """Remove a ticker from the cache (e.g., when removed from watchlist)."""

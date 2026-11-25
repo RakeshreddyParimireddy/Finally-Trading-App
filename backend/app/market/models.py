@@ -14,6 +14,20 @@ class PriceUpdate:
     price: float
     previous_price: float
     timestamp: float = field(default_factory=time.time)  # Unix seconds
+    session_open: float | None = None  # First price seen this process (None -> previous_price)
+
+    @property
+    def open_price(self) -> float:
+        """Session reference price: session_open, falling back to previous_price."""
+        return self.session_open if self.session_open is not None else self.previous_price
+
+    @property
+    def session_change_percent(self) -> float:
+        """Percentage change since the session open."""
+        ref = self.open_price
+        if ref == 0:
+            return 0.0
+        return round((self.price - ref) / ref * 100, 4)
 
     @property
     def change(self) -> float:
@@ -46,4 +60,6 @@ class PriceUpdate:
             "change": self.change,
             "change_percent": self.change_percent,
             "direction": self.direction,
+            "session_open": self.open_price,
+            "session_change_percent": self.session_change_percent,
         }

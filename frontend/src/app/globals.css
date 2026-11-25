@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+/*
+ * FinAlly terminal tokens.
+ * One condensed family (IBM Plex Sans Condensed) with tabular figures so
+ * every price column aligns; colour carries meaning (up / down / accent), not decoration.
+ */
+@theme {
+  --color-bg: #0d1117;
+  --color-panel: #121821;
+  --color-raised: #18202c;
+  --color-line: #232c3a;
+  --color-line-strong: #334052;
+  --color-text: #d8dfe9;
+  --color-muted: #7c889a;
+  --color-faint: #4f5a6b;
+  --color-up: #2fc38c;
+  --color-down: #f0596f;
+  --color-accent: #ecad0a;
+  --color-blue: #209dd7;
+  --color-purple: #753991;
+  --color-purple-hi: #8a47aa;
+
+  --font-sans: "IBM Plex Sans Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1, "zero" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.num {
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* Price flash: applied by JS for ~300ms, then removed so the background fades back. */
+.price-cell {
+  transition: background-color 300ms ease-out, color 300ms ease-out;
+  border-radius: 2px;
+}
+.price-cell.flash-up {
+  background-color: rgb(47 195 140 / 0.28);
+  color: #eafff6;
+  transition: none;
+}
+.price-cell.flash-down {
+  background-color: rgb(240 89 111 / 0.3);
+  color: #fff0f2;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .price-cell {
+    transition: none;
+  }
+}
+
+/* Thin, quiet scrollbars for dense panels. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3442 transparent;
+}
+
+:focus-visible {
+  outline: 1px solid var(--color-blue);
+  outline-offset: 1px;
+}
+
+/* Recharts: no focus box around SVG surfaces. */
+.recharts-surface:focus,
+.recharts-wrapper:focus {
+  outline: none;
+}
+
+@keyframes dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.dot-pulse {
+  animation: dot-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot-pulse {
+    animation: none;
+  }
+}

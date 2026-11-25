@@ -1,0 +1,36 @@
+# Keep the build context small and free of secrets/local state
+.git
+.github
+.claude
+.env
+.env.*
+!.env.example
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.coverage
+**/htmlcov
+
+# Python
+backend/.venv
+backend/static
+backend/tests
+backend/market_data_demo.py
+
+# Node / Next.js
+**/node_modules
+frontend/.next
+frontend/out
+frontend/coverage
+
+# Runtime data, tests, docs
+db
+test
+planning
+scripts
+*.db
+*.log
+Dockerfile
+docker-compose*.yml
